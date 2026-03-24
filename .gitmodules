@@ -1,0 +1,12 @@
+[submodule "subpackages/photoshopConnector"]
+	path = subpackages/photoshopConnector
+	url = https://github.com/mbragagnolo/photoshopConnector.git
+[submodule "subpackages/English2french-translator"]
+	path = subpackages/English2french-translator
+	url = https://github.com/mbragagnolo/English2french-translator.git
+[submodule "subpackages/socialmediaExpert"]
+	path = subpackages/socialmediaExpert
+	url = https://github.com/mbragagnolo/socialmediaExpert.git
+[submodule "subpackages/Social-media-researcher"]
+	path = subpackages/Social-media-researcher
+	url = https://github.com/mbragagnolo/Social-media-researcher.git
