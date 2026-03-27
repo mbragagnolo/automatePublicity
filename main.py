@@ -21,6 +21,7 @@ from datetime import date
 
 ROOT = Path(__file__).parent
 SUBPKGS = ROOT / "subpackages"
+PUBLICATIONS_DIR = ROOT / "Publications"
 
 EXCEL_PATH = SUBPKGS / "Social-media-researcher" / "data" / "videos.xlsx"
 CHROMA_DIR = ROOT / "data" / "chroma_db"
@@ -142,9 +143,9 @@ def resolve_output_dir(output_dir_arg: str | None, platform: str) -> tuple[Path,
     if output_dir_arg:
         date_dir = Path(output_dir_arg)
         if not date_dir.is_absolute():
-            date_dir = ROOT / date_dir
+            date_dir = PUBLICATIONS_DIR / date_dir
     else:
-        date_dir = ROOT / date.today().strftime("%Y-%m-%d")
+        date_dir = PUBLICATIONS_DIR / date.today().strftime("%Y-%m-%d")
 
     run_n = _next_run_number(date_dir, platform)
     run_name = f"{platform}_{run_n}"
@@ -444,6 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", metavar="DIR", help="Output directory (default: today's date)")
     parser.add_argument("--name", metavar="NAME", help="Base name for output files (default: derived from description)")
     parser.add_argument("--skip-rag", action="store_true", help="Skip transcript ingestion from Social-media-researcher")
+    parser.add_argument("--batch", metavar="FILE", help="Path to a YAML file with a list of jobs to run sequentially")
 
     # Image inputs for Photoshop steps
     parser.add_argument(
@@ -471,9 +473,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+def run_job(args: argparse.Namespace) -> None:
+    """Execute the full pipeline for a single set of parsed arguments."""
 
     # ------------------------------------------------------------------
     # Resolve platform
@@ -633,6 +634,57 @@ def main() -> None:
         print("      No visual assets for this content type / platform combination.")
 
     print("\nDone.")
+
+
+# ---------------------------------------------------------------------------
+# Batch support
+# ---------------------------------------------------------------------------
+
+def job_to_namespace(job: dict, parser: argparse.ArgumentParser) -> argparse.Namespace:
+    """Convert a YAML job dict to an argparse.Namespace with correct defaults."""
+    args = parser.parse_args([job["description"], job["content_type"]])
+    platform = job.get("platform", "")
+    args.tiktok = platform == "tiktok"
+    args.reels  = platform == "reels"
+    args.shorts = platform == "shorts"
+    for key in ("french", "skip_rag", "output_dir", "name",
+                "carousel_type", "slide_file", "before_image", "after_image"):
+        if key in job:
+            setattr(args, key, job[key])
+    if "images" in job:
+        args.images = job["images"]
+    return args
+
+
+def run_batch(batch_file: Path, parser: argparse.ArgumentParser) -> None:
+    """Read a YAML batch file and run each job sequentially."""
+    import yaml
+    if not batch_file.exists():
+        print(f"ERROR: batch file not found: {batch_file}")
+        sys.exit(1)
+    data = yaml.safe_load(batch_file.read_text(encoding="utf-8"))
+    jobs = data.get("jobs", [])
+    if not jobs:
+        print("No jobs found in batch file.")
+        return
+    sep = "=" * 60
+    print(f"Batch: {len(jobs)} job(s) from {batch_file.name}\n{sep}")
+    for i, job in enumerate(jobs, 1):
+        print(f"\n[Job {i}/{len(jobs)}] {job.get('description', '')!r}")
+        try:
+            run_job(job_to_namespace(job, parser))
+        except SystemExit:
+            print(f"  Job {i} exited early (see messages above).")
+        print(sep)
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.batch:
+        run_batch(Path(args.batch), parser)
+    else:
+        run_job(args)
 
 
 if __name__ == "__main__":

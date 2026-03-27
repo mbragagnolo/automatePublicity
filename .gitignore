@@ -1,0 +1,12 @@
+# Generated output — not tracked in version control
+Publications/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# Data
+data/
+*.xlsx
